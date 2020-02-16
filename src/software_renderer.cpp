@@ -242,17 +242,197 @@ void SoftwareRendererImp::rasterize_line( float x0, float y0,
                                           float x1, float y1,
                                           Color color) {
 
-  // Task 2: 
-  // Implement line rasterization
+    int sx0 = (int)floor(x0);
+    int sy0 = (int)floor(y0);
+    int sx1 = (int)floor(x1);
+    int sy1 = (int)floor(y1);
+
+    //if vertical line
+    if (sx0 == sx1) {
+
+        for (int i = min(sy0, sy1); i <= max(sy0, sy1); i++) {
+            rasterize_point(sx0, i, color);
+        }
+
+        return;
+
+    }
+   
+    float slope = (y1 - y0) / (x1 - x0);
+    int x_start, y_start;
+    float x, y;
+
+    if (-1 <= slope && slope <= 1) {
+
+         if (sx0 < sx1) {
+             x_start = sx0;
+             y_start = sy0;
+         }
+
+         else { //sx0 >= sx1
+             x_start = sx1;
+             y_start = sy1;
+         }
+
+         y = y_start == sy0? y0 : y1;
+
+         for (int i = x_start; i <= max(sx0, sx1); i++) {
+             rasterize_point(i, y, color);
+             y += slope;
+         }
+    }
+
+    else {
+         if (sy0 < sy1) {
+             x_start = sx0;
+             y_start = sy0;
+         }
+
+         else { //sy0 >= sy1
+             x_start = sx1;
+             y_start = sy1;
+         }
+
+         x = x_start == sx0? x0 : x1;
+         
+         for (int i = y_start; i <= max(sy0, sy1); i++) {
+             rasterize_point(x, i, color);
+             x += (1 / slope);
+         }
+
+    }
+
+}
+
+float cross_product(float x0, float y0,
+                   float x1, float y1) {
+    return (x0 * y1) - (x1 * y0);
 }
 
 void SoftwareRendererImp::rasterize_triangle( float x0, float y0,
                                               float x1, float y1,
                                               float x2, float y2,
                                               Color color ) {
-  // Task 3: 
-  // Implement triangle rasterization
+    /*
+    int sx0 = (int)floor(x0); int sy0 = (int)floor(y0);
+    int sx1 = (int)floor(x1); int sy1 = (int)floor(y1);
+    int sx2 = (int)floor(x2); int sy2 = (int)floor(y2);
 
+    int box_left = min(sx0, max(sx1, sx2));
+    int box_right = max(sx0, max(sx1, sx2));
+    int box_bottom = min(sy0, max(sy1, sy2));
+    int box_top = max(sy0, max(sy1, sy2));
+
+    for (int x = box_left; x <= box_right; x++) {
+        for (int y = box_bottom; y <= box_top; y++) {
+
+            float det = cross_product(x1 - x0, y1 - y0, x2 - x0, y2 - y0);
+            float s = cross_product(x - x0, y - y0, x2 - x0, y2 - y0) / det;
+            float t1 = cross_product(x - x0, y - y0, x1 - x0, y1 - y0) / det;
+            float t2 = cross_product(x1 - x0, y1 - y0, x - x0, y - y0) / det;
+
+            if ((s >= 0 && t1 >= 0 && s + t1 <= 1) || 
+                (s >= 0 && t2 >= 0 && s + t2 <= 1)) {
+                rasterize_point(x, y, color);
+            }
+
+        }
+    }
+    */
+
+    float slope1, slope2;
+    float curr_left, curr_right;
+
+    // Sort vertices from top to bottom 
+    float bottom_x, bottom_y, middle_x, middle_y, top_x, top_y;
+
+    bottom_y = min(y0, min(y1, y2));
+    middle_y = min(min(max(y0, y1), max(y1, y2)), max(y0, y2));
+    top_y = max(y0, max(y1, y2));
+
+    if (bottom_y == y0) {
+        bottom_x = x0;
+
+        if (middle_y == y1) {
+            middle_x = x1;
+            top_x = x2;
+        }
+        else {
+            middle_x = x2;
+            top_x = x1;
+        }
+    }
+
+    else if (bottom_y == y1) {
+        bottom_x = x1;
+
+        if (middle_y == y0) {
+            middle_x = x0;
+            top_x = x2;
+        }
+        else {
+            middle_x = x2;
+            top_x = x0;
+        }
+    }
+
+    else {
+        bottom_x = x2;
+
+        if (middle_y == y0) {
+            middle_x = x0;
+            top_x = x1;
+        }
+        else {
+            middle_x = x1;
+            top_x = x0;
+        }
+    }
+
+    // if bottom edge is flat
+    if (floor(bottom_y) == floor(middle_y)) {
+
+        curr_left = min(bottom_x, middle_x);
+        curr_right = max(bottom_x, middle_x);
+
+        slope1 = (top_x - curr_left) / (top_y - bottom_y);
+        slope2 = (top_x - curr_right) / (top_y - bottom_y);
+
+        //draw horizontal lines starting at the bottom and going to the top
+        for (int y = (int) floor(bottom_y); y <= (int) floor(top_y); y++) {
+            rasterize_line(curr_left, y, curr_right, y, color);
+            curr_left += slope2;
+            curr_right += slope1;
+        }
+
+    }
+
+    // if top edge is flat
+    else if (floor(middle_y) == floor(top_y)) {
+
+        curr_left = min(middle_x, top_x);
+        curr_right = max(middle_x, top_x);
+
+        slope1 = (curr_left - bottom_x) / (top_y - bottom_y);
+        slope2 = (curr_right - bottom_x) / (top_y - bottom_y);
+
+        //draw horizontal lines starting at the bottom and going to the top
+        for (int y = (int) floor(top_y); y >= (int)floor(bottom_y); y--) {
+            rasterize_line(curr_left, y, curr_right, y, color);
+            curr_left += slope2;
+            curr_right += slope1;
+        }
+    }
+
+    // otherwise, split triangle into a bottom-flat triangle and a top-flat triangle
+    
+    else {
+        float x = bottom_x + (middle_y - bottom_y) / (top_y - bottom_y) * (top_x - bottom_x);
+        float y = middle_y;
+
+        rasterize_triangle(middle_x, middle_y, x, y, top_x, top_y, color);
+        rasterize_triangle(middle_x, middle_y, x, y, bottom_x, bottom_y, color);
+    }
 }
 
 void SoftwareRendererImp::rasterize_image( float x0, float y0,

@@ -207,7 +207,7 @@ void HardwareRenderer::draw_polygon( Polygon& polygon ) {
   c = polygon.style.strokeColor;
   if( c.a != 0 ) {
     int nPoints = polygon.points.size();
-    for( int i = 0; i < nPoints; i++ ) {
+    for(int i = 0; i < nPoints; i++ ) {
       Vector2D p0 = transform(polygon.points[(i+0) % nPoints]);
       Vector2D p1 = transform(polygon.points[(i+1) % nPoints]);
       rasterize_line( p0.x, p0.y, p1.x, p1.y, c );
@@ -243,8 +243,11 @@ void HardwareRenderer::draw_group( Group& group ) {
 
 void HardwareRenderer::rasterize_point(float x, float y, Color color) {
   
-  // Task 1: 
-  // Implement point rasterization
+    glColor4f(color.r, color.g, color.b, color.a);
+
+    glBegin(GL_POINTS);
+        glVertex2f(x, y);
+    glEnd();
 
 }
 
@@ -252,8 +255,12 @@ void HardwareRenderer::rasterize_line(float x0, float y0,
                                       float x1, float y1, 
                                       Color color) {
 
-  // Task 1: 
-  // Implement line rasterization
+    glColor4f(color.r, color.g, color.b, color.a);
+
+    glBegin(GL_LINES);
+        glVertex2f(x0, y0);
+        glVertex2f(x1, y1);
+    glEnd();
 
 }
 
@@ -261,9 +268,13 @@ void HardwareRenderer::rasterize_triangle(float x0, float y0,
                                           float x1, float y1, 
                                           float x2, float y2, 
                                           Color color) {
-  // Task 1: 
-  // Implement triangle rasterization
+    glColor4f(color.r, color.g, color.b, color.a);
 
+    glBegin(GL_TRIANGLES);
+        glVertex2f(x0, y0);
+        glVertex2f(x1, y1);
+        glVertex2f(x2, y2);
+    glEnd();
 }
 
 void HardwareRenderer::rasterize_image(float x0, float y0,
