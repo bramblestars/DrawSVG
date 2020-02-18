@@ -130,6 +130,11 @@ class SoftwareRendererImp : public SoftwareRenderer {
                         float x1, float y1,
                         Texture& tex );
 
+  std::vector<unsigned char> sample_buffer; int w; int h;
+
+  void fill_sample(int sx, int sy, const Color& c);
+  void fill_pixel(int x, int y, const Color& c);
+
   // resolve samples to render target
   void resolve( void );
 

@@ -46,16 +46,27 @@ void SoftwareRendererImp::set_sample_rate( size_t sample_rate ) {
   // You may want to modify this for supersampling support
   this->sample_rate = sample_rate;
 
+  w = this->sample_rate * this->target_w;
+  h = this->sample_rate * this->target_h;
+
+  sample_buffer.resize(((size_t) 4) * w * h);
+
 }
 
 void SoftwareRendererImp::set_render_target( unsigned char* render_target,
                                              size_t width, size_t height ) {
 
-  // Task 4: 
-  // You may want to modify this for supersampling support
-  this->render_target = render_target;
-  this->target_w = width;
-  this->target_h = height;
+    // Task 4: 
+    // You may want to modify this for supersampling support
+
+    this->render_target = render_target;
+    this->target_w = width;
+    this->target_h = height;
+
+    w = this->sample_rate * this->target_w;
+    h = this->sample_rate * this->target_h;
+
+    sample_buffer.resize(((size_t)4) * w * h);
 
 }
 
@@ -222,19 +233,21 @@ void SoftwareRendererImp::draw_group( Group& group ) {
 
 void SoftwareRendererImp::rasterize_point( float x, float y, Color color ) {
 
-  // fill in the nearest pixel
-  int sx = (int) floor(x);
-  int sy = (int) floor(y);
+    int rate = this->sample_rate;
 
-  // check bounds
-  if ( sx < 0 || sx >= target_w ) return;
-  if ( sy < 0 || sy >= target_h ) return;
+    // fill in the nearest pixel
+    int sx = (int) floor(x);
+    int sy = (int) floor(y);
 
-  // fill sample - NOT doing alpha blending!
-  render_target[4 * (sx + sy * target_w)    ] = (uint8_t) (color.r * 255);
-  render_target[4 * (sx + sy * target_w) + 1] = (uint8_t) (color.g * 255);
-  render_target[4 * (sx + sy * target_w) + 2] = (uint8_t) (color.b * 255);
-  render_target[4 * (sx + sy * target_w) + 3] = (uint8_t) (color.a * 255);
+    sx *= rate;
+    sy *= rate;
+
+    // check bounds
+    if ( sx < 0 || sx >= w ) return;
+    if ( sy < 0 || sy >= h ) return;
+
+    // fill sample - NOT doing alpha blending!
+    fill_sample(sx, sy, color);
 
 }
 
@@ -242,10 +255,10 @@ void SoftwareRendererImp::rasterize_line( float x0, float y0,
                                           float x1, float y1,
                                           Color color) {
 
-    int sx0 = (int)floor(x0);
-    int sy0 = (int)floor(y0);
-    int sx1 = (int)floor(x1);
-    int sy1 = (int)floor(y1);
+    int sx0 = ((int)floor(x0));
+    int sy0 = ((int)floor(y0));
+    int sx1 = ((int)floor(x1));
+    int sy1 = ((int)floor(y1));
 
     //if vertical line
     if (sx0 == sx1) {
@@ -304,135 +317,43 @@ void SoftwareRendererImp::rasterize_line( float x0, float y0,
 
 }
 
-float cross_product(float x0, float y0,
-                   float x1, float y1) {
-    return (x0 * y1) - (x1 * y0);
+float signed_area(float x0, float y0, float x1, float y1, float x2, float y2) {
+    return (x0 * y1 - x1 * y0) - (x0 * y2 - x2 * y0) + (x1 * y2 - x2 * y1);
 }
+
 
 void SoftwareRendererImp::rasterize_triangle( float x0, float y0,
                                               float x1, float y1,
                                               float x2, float y2,
                                               Color color ) {
-    /*
-    int sx0 = (int)floor(x0); int sy0 = (int)floor(y0);
-    int sx1 = (int)floor(x1); int sy1 = (int)floor(y1);
-    int sx2 = (int)floor(x2); int sy2 = (int)floor(y2);
 
-    int box_left = min(sx0, max(sx1, sx2));
-    int box_right = max(sx0, max(sx1, sx2));
-    int box_bottom = min(sy0, max(sy1, sy2));
-    int box_top = max(sy0, max(sy1, sy2));
+    float rate = (float)this->sample_rate;
 
-    for (int x = box_left; x <= box_right; x++) {
-        for (int y = box_bottom; y <= box_top; y++) {
+    float bottom = min(y0, min(y1, y2)) * rate;
+    float top = max(y0, max(y1, y2)) * rate;
+    float left = min(x0, min(x1, x2)) * rate;
+    float right = max(x0, max(x1, x2)) * rate;
 
-            float det = cross_product(x1 - x0, y1 - y0, x2 - x0, y2 - y0);
-            float s = cross_product(x - x0, y - y0, x2 - x0, y2 - y0) / det;
-            float t1 = cross_product(x - x0, y - y0, x1 - x0, y1 - y0) / det;
-            float t2 = cross_product(x1 - x0, y1 - y0, x - x0, y - y0) / det;
+    float a1, a2, a3;
+    float x_test, y_test;
 
-            if ((s >= 0 && t1 >= 0 && s + t1 <= 1) || 
-                (s >= 0 && t2 >= 0 && s + t2 <= 1)) {
-                rasterize_point(x, y, color);
+    for (float x = floor(left); x <= right; x++) {
+        for (float y = floor(bottom); y <= top; y++) {
+
+            x_test = x + 0.5;
+            y_test = y + 0.5;
+
+            a1 = signed_area(x_test, y_test, x0, y0, x1, y1);
+            a2 = signed_area(x_test, y_test, x1, y1, x2, y2);
+            a3 = signed_area(x_test, y_test, x2, y2, x0, y0);
+
+            if ((a1 >= 0 && a2 >= 0 && a3 >= 0) || (a1 <= 0 && a2 <= 0 && a3 <= 0)) {
+                rasterize_point(x/rate, y/rate, color);
             }
 
         }
     }
-    */
 
-    float slope1, slope2;
-    float curr_left, curr_right;
-
-    // Sort vertices from top to bottom 
-    float bottom_x, bottom_y, middle_x, middle_y, top_x, top_y;
-
-    bottom_y = min(y0, min(y1, y2));
-    middle_y = min(min(max(y0, y1), max(y1, y2)), max(y0, y2));
-    top_y = max(y0, max(y1, y2));
-
-    if (bottom_y == y0) {
-        bottom_x = x0;
-
-        if (middle_y == y1) {
-            middle_x = x1;
-            top_x = x2;
-        }
-        else {
-            middle_x = x2;
-            top_x = x1;
-        }
-    }
-
-    else if (bottom_y == y1) {
-        bottom_x = x1;
-
-        if (middle_y == y0) {
-            middle_x = x0;
-            top_x = x2;
-        }
-        else {
-            middle_x = x2;
-            top_x = x0;
-        }
-    }
-
-    else {
-        bottom_x = x2;
-
-        if (middle_y == y0) {
-            middle_x = x0;
-            top_x = x1;
-        }
-        else {
-            middle_x = x1;
-            top_x = x0;
-        }
-    }
-
-    // if bottom edge is flat
-    if (floor(bottom_y) == floor(middle_y)) {
-
-        curr_left = min(bottom_x, middle_x);
-        curr_right = max(bottom_x, middle_x);
-
-        slope1 = (top_x - curr_left) / (top_y - bottom_y);
-        slope2 = (top_x - curr_right) / (top_y - bottom_y);
-
-        //draw horizontal lines starting at the bottom and going to the top
-        for (int y = (int) floor(bottom_y); y <= (int) floor(top_y); y++) {
-            rasterize_line(curr_left, y, curr_right, y, color);
-            curr_left += slope2;
-            curr_right += slope1;
-        }
-
-    }
-
-    // if top edge is flat
-    else if (floor(middle_y) == floor(top_y)) {
-
-        curr_left = min(middle_x, top_x);
-        curr_right = max(middle_x, top_x);
-
-        slope1 = (curr_left - bottom_x) / (top_y - bottom_y);
-        slope2 = (curr_right - bottom_x) / (top_y - bottom_y);
-
-        //draw horizontal lines starting at the bottom and going to the top
-        for (int y = (int) floor(top_y); y >= (int)floor(bottom_y); y--) {
-            rasterize_line(curr_left, y, curr_right, y, color);
-            curr_left += slope2;
-            curr_right += slope1;
-        }
-    }
-
-    // otherwise, split triangle into a bottom-flat triangle and a top-flat triangle
-    
-    else {
-        float x = bottom_x + (middle_y - bottom_y) / (top_y - bottom_y) * (top_x - bottom_x);
-        float y = middle_y;
-
-        rasterize_triangle(middle_x, middle_y, x, y, top_x, top_y, color);
-        rasterize_triangle(middle_x, middle_y, x, y, bottom_x, bottom_y, color);
-    }
 }
 
 void SoftwareRendererImp::rasterize_image( float x0, float y0,
@@ -443,13 +364,62 @@ void SoftwareRendererImp::rasterize_image( float x0, float y0,
 
 }
 
+void SoftwareRendererImp::fill_sample(int sx, int sy, const Color& c) {
+    sample_buffer[4L * ((size_t) sx + (size_t) sy * w)    ] = (uint8_t) (c.r * 255);
+    sample_buffer[4L * ((size_t) sx + (size_t) sy * w) + 1] = (uint8_t) (c.g * 255);
+    sample_buffer[4L * ((size_t) sx + (size_t) sy * w) + 2] = (uint8_t) (c.b * 255);
+    sample_buffer[4L * ((size_t) sx + (size_t) sy * w) + 3] = (uint8_t) (c.a * 255);
+}
+
+void SoftwareRendererImp::fill_pixel(int x, int y, const Color& c) {
+    this->render_target[4 * (x + y * this->target_w)    ] = (uint8_t) (c.r * 255);
+    this->render_target[4 * (x + y * this->target_w) + 1] = (uint8_t) (c.g * 255);
+    this->render_target[4 * (x + y * this->target_w) + 2] = (uint8_t) (c.b * 255);
+    this->render_target[4 * (x + y * this->target_w) + 3] = (uint8_t) (c.a * 255);
+}
+
 // resolve samples to render target
 void SoftwareRendererImp::resolve( void ) {
 
   // Task 4: 
   // Implement supersampling
   // You may also need to modify other functions marked with "Task 4".
-  return;
+
+    float r, b, g, a;
+    size_t rate = this->sample_rate;
+
+    for (size_t x = 0; x < target_w; x++) {
+        for (size_t y = 0; y < target_h; y++) {
+            
+            r = 0;
+            b = 0;
+            g = 0;
+            a = 0;
+
+            for (size_t sx = x * rate; sx < x * rate + rate; sx++) {
+                for (size_t sy = y * rate; sy < y * rate + rate; sy++) {
+                    r += (float) sample_buffer[4L * (sx + sy * w)];
+                    g += (float) sample_buffer[4L * (sx + sy * w) + 1L];
+                    b += (float) sample_buffer[4L * (sx + sy * w) + 2L];
+                    a += (float) sample_buffer[4L * (sx + sy * w) + 3L];
+
+                    sample_buffer[4L * (sx + sy * w)] = 255;
+                    sample_buffer[4L * (sx + sy * w) + 1L] = 255;
+                    sample_buffer[4L * (sx + sy * w) + 2L] = 255;
+                    sample_buffer[4L * (sx + sy * w) + 3L] = 255;
+                }
+            }
+
+            r = r / (rate * rate) / 255;
+            g = g / (rate * rate) / 255;
+            b = b / (rate * rate) / 255;
+            a = a / (rate * rate) / 255;
+
+            fill_pixel(x, y, Color(r, g, b, a));
+
+        }
+    }
+
 
 }
 
