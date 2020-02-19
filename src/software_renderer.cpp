@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "triangulation.h"
+#include "texture.h"
 
 using namespace std;
 
@@ -72,37 +73,44 @@ void SoftwareRendererImp::set_render_target( unsigned char* render_target,
 
 void SoftwareRendererImp::draw_element( SVGElement* element ) {
 
-  // Task 5 (part 1):
-  // Modify this to implement the transformation stack
+    // Task 5 (part 1):
+    // Modify this to implement the transformation stack
+      
+    Matrix3x3 elem_transform = element->transform;
+    Matrix3x3 proj_transform = this->transformation;
 
-  switch(element->type) {
-    case POINT:
-      draw_point(static_cast<Point&>(*element));
-      break;
-    case LINE:
-      draw_line(static_cast<Line&>(*element));
-      break;
-    case POLYLINE:
-      draw_polyline(static_cast<Polyline&>(*element));
-      break;
-    case RECT:
-      draw_rect(static_cast<Rect&>(*element));
-      break;
-    case POLYGON:
-      draw_polygon(static_cast<Polygon&>(*element));
-      break;
-    case ELLIPSE:
-      draw_ellipse(static_cast<Ellipse&>(*element));
-      break;
-    case IMAGE:
-      draw_image(static_cast<Image&>(*element));
-      break;
-    case GROUP:
-      draw_group(static_cast<Group&>(*element));
-      break;
-    default:
-      break;
-  }
+    transformation = proj_transform * elem_transform;
+
+    switch(element->type) {
+        case POINT:
+            draw_point(static_cast<Point&>(*element));
+            break;
+        case LINE:
+            draw_line(static_cast<Line&>(*element));
+            break;
+        case POLYLINE:
+            draw_polyline(static_cast<Polyline&>(*element));
+            break;
+        case RECT:
+            draw_rect(static_cast<Rect&>(*element));
+            break;
+        case POLYGON:
+            draw_polygon(static_cast<Polygon&>(*element));
+            break;
+        case ELLIPSE:
+            draw_ellipse(static_cast<Ellipse&>(*element));
+            break;
+        case IMAGE:
+            draw_image(static_cast<Image&>(*element));
+            break;
+        case GROUP:
+            draw_group(static_cast<Group&>(*element));
+            break;
+        default:
+          break;
+      }
+
+    this->transformation = proj_transform;
 
 }
 
@@ -255,10 +263,10 @@ void SoftwareRendererImp::rasterize_line( float x0, float y0,
                                           float x1, float y1,
                                           Color color) {
 
-    int sx0 = ((int)floor(x0));
-    int sy0 = ((int)floor(y0));
-    int sx1 = ((int)floor(x1));
-    int sy1 = ((int)floor(y1));
+    int sx0 = (int)floor(x0);
+    int sy0 = (int)floor(y0);
+    int sx1 = (int)floor(x1);
+    int sy1 = (int)floor(y1);
 
     //if vertical line
     if (sx0 == sx1) {
@@ -356,11 +364,19 @@ void SoftwareRendererImp::rasterize_triangle( float x0, float y0,
 
 }
 
-void SoftwareRendererImp::rasterize_image( float x0, float y0,
-                                           float x1, float y1,
-                                           Texture& tex ) {
-  // Task 6: 
-  // Implement image rasterization
+void SoftwareRendererImp::rasterize_image(float x0, float y0,
+    float x1, float y1,
+    Texture& tex) {
+    // Task 6: 
+    // Implement image rasterization
+
+    for (int x = x0; x <= x1; x++) {
+        for (int y = y0; y <= y1; y++) {
+            float u = x / (x1 - x0);
+            float v = y / (y1 - y0);
+            fill_sample(x, y, Color(1, 0, 0, 1));
+        }
+    }
 
 }
 
