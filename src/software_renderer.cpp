@@ -370,11 +370,25 @@ void SoftwareRendererImp::rasterize_image(float x0, float y0,
     // Task 6: 
     // Implement image rasterization
 
-    for (int x = x0; x <= x1; x++) {
-        for (int y = y0; y <= y1; y++) {
-            float u = x / (x1 - x0);
-            float v = y / (y1 - y0);
-            fill_sample(x, y, Color(1, 0, 0, 1));
+    int rate = this->sample_rate;
+
+    size_t sx0 = (size_t)floor(x0 * rate);
+    size_t sx1 = (size_t)floor(x1 * rate);
+    size_t sy0 = (size_t)floor(y0 * rate);
+    size_t sy1 = (size_t)floor(y1 * rate);
+
+    float u, v, du, dv;
+
+    for (size_t x = sx0; x < sx1; x++) {
+        for (size_t y = sy0; y < sy1; y++) {
+            u = (float)(x - sx0) / (float)(sx1 - sx0);
+            v = (float)(y - sy0) / (float)(sy1 - sy0);
+            
+            du = 1 / (sx1 - sx0);
+            dv = 1 / (sx1 - sx0);
+
+            fill_sample(x, y, sampler->sample_trilinear(tex, u, v, du, dv));
+
         }
     }
 

@@ -64,18 +64,17 @@ void Sampler2DImp::generate_mips(Texture& tex, int startLevel) {
 
   }
 
-  // fill all 0 sub levels with interchanging colors (JUST AS A PLACEHOLDER)
   Color colors[3] = { Color(1,0,0,1), Color(0,1,0,1), Color(0,0,1,1) };
-  for(size_t i = 1; i < tex.mipmap.size(); ++i) {
+  for (size_t i = 1; i < tex.mipmap.size(); ++i) {
 
-    Color c = colors[i % 3];
-    MipLevel& mip = tex.mipmap[i];
+      Color c = colors[i % 3];
+      MipLevel& mip = tex.mipmap[i];
 
-    for(size_t i = 0; i < 4 * mip.width * mip.height; i += 4) {
-      float_to_uint8( &mip.texels[i], &c.r );
-    }
+      for (size_t i = 0; i < 4 * mip.width * mip.height; i += 4) {
+          float_to_uint8(&mip.texels[i], &c.r);
+      }
   }
-
+  
 }
 
 Color Sampler2DImp::sample_nearest(Texture& tex, 
@@ -90,15 +89,14 @@ Color Sampler2DImp::sample_nearest(Texture& tex,
     
     MipLevel& mip = tex.mipmap[level];
 
-    size_t sx = (int)min((size_t)floor(u * (mip.width)), mip.width);
-    size_t sy = (int)min((size_t)floor(v * (mip.height)), mip.height);
+    size_t sx = (size_t)floor(u * (mip.width));
+    size_t sy = (size_t)floor(v * (mip.height));
 
-    float r = mip.texels[4L * (sx + sy * mip.height)] / 255;
-    float g = mip.texels[4L * (sx + sy * mip.height) + 1] / 255;
-    float b = mip.texels[4L * (sx + sy * mip.height) + 2] / 255;
-    float a = mip.texels[4L * (sx + sy * mip.height) + 3] / 255;
+    Color color;
 
-    return Color(r, g, b, a);
+    uint8_to_float(&color.r, &mip.texels[4L * (sx + sy * mip.width)]);
+
+    return color;
 
 }
 
@@ -120,8 +118,8 @@ Color Sampler2DImp::sample_bilinear(Texture& tex,
     size_t sx = (size_t)floor(u * w);
     size_t sy = (size_t)floor(v * h);
 
-    float x_weight = (u * w - floor(u * w)) / w;
-    float y_weight = (u * h - floor(u * h)) / h;    
+    float x_weight = 1 - (u * w - floor(u * w)) / (float) w;
+    float y_weight = 1 - (u * h - floor(u * h)) / (float) h;    
 
     Color top_left = sample_nearest(tex, u, v, level);
     Color top_right = sample_nearest(tex, u + 1/w, v, level);
@@ -150,9 +148,44 @@ Color Sampler2DImp::sample_trilinear(Texture& tex,
                                      float u_scale, float v_scale) {
 
     // Task 7: Implement trilinear filtering
+    
+    size_t w = tex.width;
+    size_t h = tex.height;
 
+    int max_level = min(log2f(w), log2f(h));
+
+    float dx = 1 / w;
+    float dy = 1 / h;
+
+    float L = max(u_scale / dx, v_scale / dy);
+    float mip_level = log2f(L);
+    int level_below = (int)floor(mip_level);
+    int level_above = (int)ceil(mip_level);
+    
     // return magenta for invalid level
-    return Color(1, 0, 1, 1);
+    if (level_below > max_level) {
+        return Color(1, 0, 1, 1);
+    }
+
+    if (level_below < 0) {
+        return sample_bilinear(tex, u, v, 0);
+    }
+
+    if (level_above > log2f(w) || level_above > log2f(h)) {
+        return sample_bilinear(tex, u, v, max_level);
+    }
+    
+    float level_weight = mip_level - level_below;
+
+    Color above = sample_bilinear(tex, u, v, level_above);
+    Color below = sample_bilinear(tex, u, v, level_below);
+
+    float r = level_weight * above.r + (1 - level_weight) * below.r;
+    float g = level_weight * above.g + (1 - level_weight) * below.g;
+    float b = level_weight * above.b + (1 - level_weight) * below.b;
+    float a = level_weight * above.a + (1 - level_weight) * below.a;
+
+    return Color(r, b, g, a);
 
 }
 
