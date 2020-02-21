@@ -26,7 +26,13 @@ Task 6:
 
 Task 7:
 
-    Fully implemented.
+    I had trouble with filling the mip levels -- when it zooms in, the whole canvas becomes white, and when it zooms out, there is aliasing.
+    It's not nicely blended, either, like the reference solution is. 
+    I understand that we must find the MipMap level based log_2-ing the ratio between the current sample buffer resolution and the texture resolution,
+    to get to the level below and the level above. Then, we perform bilinear sampling on the level below and the level above on the given coordinate,
+    and sample between them with a weight using the (non-int) level we got using log to find the distance to each level. 
+    I also understand that the MipMap levels are populated using the average of the 4 texels overlapping it in the previous level, but I think that is where I am running into problems.
+    I'm not one hundred percent certain that I'm doing the right thing when 
 
 Task 8:
 
@@ -38,4 +44,5 @@ Extra credit:
 
 Any other comments and considerations:
 
-    ....
+    I was confused about where the du/dx and dv/dy etc. came from when it came to trilinear filtering. 
+    I also had to dig through Piazza to realize that we have to call the sampling functions from sampler, so if that had been in the write-up, that would have been very helpful.
