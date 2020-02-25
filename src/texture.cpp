@@ -64,14 +64,49 @@ void Sampler2DImp::generate_mips(Texture& tex, int startLevel) {
 
   }
 
-  Color colors[3] = { Color(1,0,0,1), Color(0,1,0,1), Color(0,0,1,1) };
+  
+  Color c;
+  float r, g, b, a;
+  size_t w, h;
+
   for (size_t i = 1; i < tex.mipmap.size(); ++i) {
 
-      Color c = colors[i % 3];
+      MipLevel& prev_mip = tex.mipmap[i - 1];
       MipLevel& mip = tex.mipmap[i];
+      w = mip.width; h = mip.height;
 
-      for (size_t i = 0; i < 4 * mip.width * mip.height; i += 4) {
-          float_to_uint8(&mip.texels[i], &c.r);
+      for (size_t i = 0; i < 4 * w * h; i += 4) {
+          r = 0; g = 0; b = 0; a = 0;
+
+          r += (float)prev_mip.texels[i * 2];
+          g += (float)prev_mip.texels[i * 2 + 1];
+          b += (float)prev_mip.texels[i * 2 + 2];
+          a += (float)prev_mip.texels[i * 2 + 3];
+
+          r += (float)prev_mip.texels[i * 2 + 5];
+          g += (float)prev_mip.texels[i * 2 + 6];
+          b += (float)prev_mip.texels[i * 2 + 7];
+          a += (float)prev_mip.texels[i * 2 + 8];
+
+          r += (float)prev_mip.texels[(i + w * 4) * 2];
+          g += (float)prev_mip.texels[(i + w * 4) * 2 + 1];
+          b += (float)prev_mip.texels[(i + w * 4) * 2 + 2];
+          a += (float)prev_mip.texels[(i + w * 4) * 2 + 3];
+
+          r += (float)prev_mip.texels[(i + w * 4) * 2 + 5];
+          g += (float)prev_mip.texels[(i + w * 4) * 2 + 6];
+          b += (float)prev_mip.texels[(i + w * 4) * 2 + 7];
+          a += (float)prev_mip.texels[(i + w * 4) * 2 + 8];
+
+          r /= 4;
+          g /= 4;
+          b /= 4;
+          a /= 4;
+
+          mip.texels[i] = r;
+          mip.texels[i + 1] = g;
+          mip.texels[i + 2] = b;
+          mip.texels[i + 3] = a;
       }
   }
   
